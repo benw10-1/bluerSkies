@@ -18,7 +18,7 @@ window.addEventListener("keydown", function (event) {
         //     goToCoord(-96.21, 37.46)
         // }
         // Test code in this block
-        // drawStations()
+        drawStations()
         // console.log(getMapState().resolution)
     }
 })
