@@ -1,6 +1,8 @@
-var view, map, fetched, city, zip, source, js_map, highlighted, old, container, content, closer, overlay
+var view, map, fetched, city, zip, source, js_map, highlighted, old, container, content, closer, overlay, popped
 const AQkey = "03e6687524e359bbf0987c0f2ede90cb945e4404"
-// city and zip are global variables to store the original found location so we can compare later
+
+const pollTypes = ["pm25", "no2", "co", "so2", "nh3", "o3", "pm10"]
+const pollVals = ["PM<sub>2.5</sub> : ", "NO<sub>2</sub> : ", "CO : ", "SO<sub>2</sub> : ", "NH<sub>3</sub> : ", "O<sub>3</sub> : ", "PM<sub>10</sub> : "]
 
 function generateMap() {
     view = new ol.View({
@@ -21,7 +23,7 @@ function generateMap() {
         element: container,
         autoPan: {
             animation: {
-                duration: 250
+              duration: 250,
             }
         }
     })
@@ -33,47 +35,68 @@ function generateMap() {
         target: 'js-map'
     })
 
-    
-
-    m.on("click", event => {
+    m.on("pointermove", event => {
         if (event.dragging) return
         if (highlighted) {
             highlighted.setStyle(old)
         }
-
-        overlay.setPosition(undefined)
-        closer.blur()
-
+        highlighted = undefined
         const eventPix = map.getEventPixel(event.originalEvent)
+        let counter = 0
 
-        vector.getFeatures(eventPix).then(features => {
-            for (i=0; i < features.length; i++) {
-                const col = [170, 211, 223, 1]
+        map.forEachFeatureAtPixel(eventPix, (feature, layer) => {
+            if (!feature) return
+            if (highlighted) return
+            const col = [170, 211, 223, 1]
 
-                let imgFill = features[i].getStyle().clone()
+            let imgFill = feature.getStyle().clone()
 
-                let colorStyle = new ol.style.Style({
+            let colorStyle = new ol.style.Style({
                     image: new ol.style.Circle({
                         radius: 15,
                         fill: new ol.style.Fill({ 
                             color: col
                         })
                     })
-                })
+            })
 
-                features[i].setStyle(colorStyle)
+            feature.setStyle(colorStyle)
+            
+            let ext = feature.getGeometry().getExtent();
+            let coordinate = ol.extent.getCenter(ext)
 
-                let ext = features[i].getGeometry().getExtent();
-                let coordinate = ol.extent.getCenter(ext)
+            popupInfo(coordinate, feature.get("pollutionInfo"))
 
-                overlay.setPosition(coordinate)
-
-                old = imgFill
-                highlighted = features[i]
-            }
+            old = imgFill
+            highlighted = feature
+            counter++
         })
+
+        if (!counter) {
+            clearPopup()
+        }
     })
     return m
+}
+
+function popupInfo(pos, info) {
+    if (popped) return
+    overlay.setPosition(pos)
+    
+    content.innerHTML = ""
+    
+    for (i = 0; i < info.length; i++) {
+        let p = document.createElement("p")
+        p.innerHTML = info[i]
+
+        content.appendChild(p)
+    }
+    popped = true
+}
+
+function clearPopup () {
+    overlay.setPosition(undefined)
+    popped = false
 }
 
 function goToCoord(lon, lat, onDone=() => {}) {
@@ -85,7 +108,7 @@ function goToCoord(lon, lat, onDone=() => {}) {
         duration: 2000
     })
     view.animate({
-        zoom: 8,
+        zoom: 10,
         duration: 2000
     }, interrupted => {
         if (!interrupted) {
@@ -162,27 +185,38 @@ function getMapState() {
     }
 }
 
-function drawDot(lon, lat, color=[220,220,220, .5], radius=15, src=source) {
+function drawDot(lon, lat, color=[220,220,220, .5], data=null) {
     let feature = new ol.Feature({
         geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
     })
 
     let colorStyle = new ol.style.Style({
         image: new ol.style.Circle({
-            radius: radius,
+            radius: 15,
             fill: new ol.style.Fill({ 
                 color: color
             })
         })
     })
+
+    feature.setStyle((ft, resolution) =>{
+        if (!ft.getStyle()) return
+        st = ft.getStyle()
+        st.getImage().setScale(map.getView().getResolutionForZoom(10) / resolution)
+        return st
+    })
+
+    if (data) {
+        feature.set("pollutionInfo", data, true)
+    }
+
     feature.setStyle(colorStyle)
-    src.addFeature(feature)
+    source.addFeature(feature)
 
     return feature
 }
 
 function drawGrid() {
-    const size = 9
     console.log("ran")
     source.clear()
 
@@ -191,42 +225,39 @@ function drawGrid() {
 
     let right = box[2], left = box[0], top = box[3], bottom = box[1]
 
-    let perHeight = glbox[0]
+    let width = right - left
+    let height = top - bottom
 
-    const lonInc = (right - left)/size
-    const latInc = (top - bottom)/size
+    const rowSize = 9
+    const columnSize = Math.floor(rowSize * (width/height))
 
-    // let counter = {done: false}
-    // let c = size**2
-    // var none = false
+    const lonInc = width/columnSize
+    const latInc = height/rowSize
 
-    // waitForCond(counter, "done", () => {
-    //     counter["done"] = (c === 0)
-    // }).then(() => {
-    //     if (none) {
-    //         alert("No stations in your area")
-    //     }
-    // })
     const startLat = bottom + latInc/2
     const startLon = left + lonInc/2
 
-    for (row = 0; row < size; row++) {
-        for (column = 0; column < size; column++) {
+    for (row = 0; row < rowSize; row++) {
+        for (column = 0; column < columnSize; column++) {
             getPolutionData(startLon + lonInc * column, startLat + latInc * row).then(data => {
                 let [resLat, resLon] = data.latLon
                 if (isWater(resLon, resLat)) return
                 // if (resLat > top || resLon > right || resLat < bottom || resLon < left) return
                 // none = false
 
-                if (data.iaqi["pm25"]){
-                    val = data.iaqi["pm25"].v
+                let d = []
+                let val = 0
+
+                for (i = 0; i < pollTypes.length; i++) {
+                    if (data["iaqi"].hasOwnProperty(pollTypes[i])) {
+                        if (pollTypes[i] === "pm25") val = data["iaqi"][pollTypes[i]].v
+                        d.push(pollVals[i] + data["iaqi"][pollTypes[i]].v)
+                    }
                 }
-                else { 
-                    val = 0 
-                }
+
                 let color = [Math.min(val * 2, 255), Math.max(255 - val * 2, 0), Math.min(Math.max(0, 2 * (val - 70)), 255), .5]
 
-                drawDot(resLon, resLat, color)
+                drawDot(resLon, resLat, color, d)
             })
         }
     }

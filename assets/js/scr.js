@@ -1,13 +1,7 @@
 window.onload = function () {
     container = document.getElementById('popup')
     content = document.getElementById('popup-content')
-    closer = document.getElementById('popup-closer')
 
-    closer.onclick = () => {
-        overlay.setPosition(undefined)
-        closer.blur()
-        return false
-    }
     map = generateMap()
 
     fetch("https://ipapi.co/json/").then(response => {
