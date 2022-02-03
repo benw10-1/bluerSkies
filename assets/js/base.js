@@ -1,5 +1,4 @@
-var view, map, fetched, city, zip, source, js_map
-var dots = new Set()
+var view, map, fetched, city, zip, source, js_map, highlighted, old
 const AQkey = "03e6687524e359bbf0987c0f2ede90cb945e4404"
 // city and zip are global variables to store the original found location so we can compare later
 
@@ -25,18 +24,41 @@ function generateMap() {
         target: 'js-map'
     })
 
-    m.on("pointermove", event => {
+    vector2 = new ol.layer.Vector({
+        source: new ol.source.Vector(),
+        map: m,
+        updateWhileAnimating: true,
+        updateWhileInteracting: true,
+        zIndex: 2
+    })
+
+    m.on("click", event => {
         if (event.dragging) return
+        if (highlighted) {
+            highlighted.setStyle(old)
+        }
 
         const eventPix = map.getEventPixel(event.originalEvent)
 
         vector.getFeatures(eventPix).then(features => {
             for (i=0; i < features.length; i++) {
-                let s = features[i].getStyle()
-                console.log(s)
-                let col = s.image.fill.color
-                col[3] = 1
-                features[i].setStyle(s)
+                const col = [170, 211, 223, 1]
+
+                let imgFill = features[i].getStyle().clone()
+
+                let colorStyle = new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: 15,
+                        fill: new ol.style.Fill({ 
+                            color: col
+                        })
+                    })
+                })
+
+                features[i].setStyle(colorStyle)
+
+                old = imgFill
+                highlighted = features[i]
             }
         })
     })
@@ -72,7 +94,7 @@ function isWater(lon, lat) {
 
     var canvasContext = document.getElementById("js-map").querySelector("canvas").getContext('2d')
 
-    let width = 5, height = 5
+    let width = 7, height = 7
 
     let blues = 0
 
@@ -90,7 +112,7 @@ function isWater(lon, lat) {
             }
         }
     }
-    return blues <= width * height * 2/3
+    return blues <= width * height * .9
 }
 
 function zoom(z=4) {
@@ -129,13 +151,11 @@ function getMapState() {
     }
 }
 
-function drawDot(lon, lat, color=[220,220,220, .5], radius=15) {
-    if (dots.has([lon, lat])) return
+function drawDot(lon, lat, color=[220,220,220, .5], radius=15, src=source) {
     let feature = new ol.Feature({
         geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
     })
-    color.push(.5)
-    // var polygon = ol.geom.Polygon.circular([parseFloat(response[0].lon), parseFloat(response[0].lat)], 4000);
+
     let colorStyle = new ol.style.Style({
         image: new ol.style.Circle({
             radius: radius,
@@ -145,9 +165,9 @@ function drawDot(lon, lat, color=[220,220,220, .5], radius=15) {
         })
     })
     feature.setStyle(colorStyle)
-    source.addFeature(feature)
-    map.render()
-    dots.add([lon, lat])
+    src.addFeature(feature)
+
+    return feature
 }
 
 function drawGrid(size=9) {
@@ -161,11 +181,6 @@ function drawGrid(size=9) {
     let box = ol.proj.transformExtent(glbox,'EPSG:3857','EPSG:4326')
 
     let right = box[2], left = box[0], top = box[3], bottom = box[1]
-    
-    // drawDot(right, top, [255, 0, 0, 255])
-    // drawDot(left, bottom, [0, 255, 0, 255])
-    // drawDot(right, bottom, [0, 0, 255, 255])
-    // drawDot(left, top, [0, 0, 0, 255])
 
     const lonInc = (right - left)/size
     const latInc = (top - bottom)/size
@@ -200,7 +215,7 @@ function drawGrid(size=9) {
                 else { 
                     val = 0 
                 }
-                let color = [Math.min(val * 2, 255), Math.max(255 - val * 2, 0), Math.min(Math.max(0, 2 * (val - 70)), 255)]
+                let color = [Math.min(val * 2, 255), Math.max(255 - val * 2, 0), Math.min(Math.max(0, 2 * (val - 70)), 255), .5]
 
                 drawDot(resLon, resLat, color)
             })
