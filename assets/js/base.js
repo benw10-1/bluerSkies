@@ -1,6 +1,7 @@
-var view, map, fetched, city, zip, source, js_map, highlighted, old, container, content, closer, overlay, popped
-const AQkey = "03e6687524e359bbf0987c0f2ede90cb945e4404"
+var view, map, fetched, city, zip, source, js_map, highlighted, old, container, content, closer, overlay, popped, circleRad
 
+const AQkey = "03e6687524e359bbf0987c0f2ede90cb945e4404"
+const constRad = 15
 const pollTypes = ["pm25", "no2", "co", "so2", "nh3", "o3", "pm10"]
 const pollVals = ["PM<sub>2.5</sub> : ", "NO<sub>2</sub> : ", "CO : ", "SO<sub>2</sub> : ", "NH<sub>3</sub> : ", "O<sub>3</sub> : ", "PM<sub>10</sub> : "]
 
@@ -49,11 +50,11 @@ function generateMap() {
             if (highlighted) return
             const col = [170, 211, 223, 1]
 
-            let imgFill = feature.getStyle().clone()
+            let imgFill = feature.getStyle()
 
             let colorStyle = new ol.style.Style({
                     image: new ol.style.Circle({
-                        radius: 15,
+                        radius: circleRad,
                         fill: new ol.style.Fill({ 
                             color: col
                         })
@@ -62,6 +63,11 @@ function generateMap() {
 
             feature.setStyle(colorStyle)
             
+            feature.setStyle(function (feature, resolution) {
+                colorStyle.getImage().setScale(map.getView().getResolutionForZoom(10) / resolution)
+                return colorStyle
+            })
+
             let ext = feature.getGeometry().getExtent();
             let coordinate = ol.extent.getCenter(ext)
 
@@ -192,18 +198,11 @@ function drawDot(lon, lat, color=[220,220,220, .5], data=null) {
 
     let colorStyle = new ol.style.Style({
         image: new ol.style.Circle({
-            radius: 15,
+            radius: circleRad,
             fill: new ol.style.Fill({ 
                 color: color
             })
         })
-    })
-
-    feature.setStyle((ft, resolution) =>{
-        if (!ft.getStyle()) return
-        st = ft.getStyle()
-        st.getImage().setScale(map.getView().getResolutionForZoom(10) / resolution)
-        return st
     })
 
     if (data) {
@@ -211,13 +210,18 @@ function drawDot(lon, lat, color=[220,220,220, .5], data=null) {
     }
 
     feature.setStyle(colorStyle)
+
+    feature.setStyle(function (feature, resolution) {
+        colorStyle.getImage().setScale(map.getView().getResolutionForZoom(10) / resolution)
+        return colorStyle
+    })
+
     source.addFeature(feature)
 
     return feature
 }
 
 function drawGrid() {
-    console.log("ran")
     source.clear()
 
     let glbox = map.getView().calculateExtent(map.getSize())
@@ -230,6 +234,8 @@ function drawGrid() {
 
     const rowSize = 9
     const columnSize = Math.floor(rowSize * (width/height))
+
+    circleRad = constRad / (map.getView().getResolutionForZoom(10) / getMapState().resolution)
 
     const lonInc = width/columnSize
     const latInc = height/rowSize
