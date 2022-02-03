@@ -21,23 +21,24 @@ function generateMap() {
         view: view,
         layers: [tileLayer, vector],
         target: 'js-map'
-    });
+    })
 }
 
 function goToCoord(lon, lat, onDone=() => {}) {
     if (map === undefined) {
         return
     }
-
     view.animate({
         center: ol.proj.fromLonLat([lon, lat]),
         duration: 2000
     })
     view.animate({
-        zoom: 14.25,
+        zoom: 8,
         duration: 2000
     }, interrupted => {
         if (!interrupted) {
+            view.setCenter(ol.proj.fromLonLat([lon, lat]))
+            view.setZoom(8)
             return
         }
         onDone(Array.prototype.slice.call(arguments, 3))
@@ -101,17 +102,15 @@ function drawDot(lon, lat, color=[220,220,220], radius=15) {
     dots.add([lon, lat])
 }
 
-function drawStations(size=9) {
+function drawGrid(size=9) {
     if (arguments[0] !== undefined) {
         size = arguments[0]
     }
-    
-    let ms = getMapState()
 
-    let [lon, lat] = ol.proj.transform(ms.center, 'EPSG:3857', 'EPSG:4326')
+    source.clear()
 
-    let glbox = map.getView().calculateExtent(map.getSize());
-    let box = ol.proj.transformExtent(glbox,'EPSG:3857','EPSG:4326');
+    let glbox = map.getView().calculateExtent(map.getSize())
+    let box = ol.proj.transformExtent(glbox,'EPSG:3857','EPSG:4326')
 
     let right = box[2], left = box[0], top = box[3], bottom = box[1]
     
@@ -125,7 +124,7 @@ function drawStations(size=9) {
 
     let counter = {done: false}
     let c = size**2
-    var none = true
+    var none = false
 
     waitForCond(counter, "done", () => {
         counter["done"] = (c === 0)
@@ -139,13 +138,12 @@ function drawStations(size=9) {
 
     for (row = 0; row < size; row++) {
         for (column = 0; column < size; column++) {
-            // drawDot(startLon + lonInc * row, startLat + latInc * column, [255,0,0,255])
             getPolutionData(startLon + lonInc * column, startLat + latInc * row).then(data => {
                 c -= 1
-                if (!data.city) return
+
                 let [resLat, resLon] = data.latLon
 
-                if (resLat > top || resLon > right || resLat < bottom || resLon < left) return
+                // if (resLat > top || resLon > right || resLat < bottom || resLon < left) return
                 none = false
 
                 if (data.iaqi["pm25"]){
