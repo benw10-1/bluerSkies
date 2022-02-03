@@ -61,7 +61,7 @@ function getPolutionData(lon, lat) {
         console.log("error: ", error)
     }).then(result => {
         if (result.status !== "ok") return 
-        result.data.lonLat = [lon, lat]
+        result.data.latLon = [lat, lon]
         return result.data
     })
 }
@@ -99,7 +99,6 @@ function drawDot(lon, lat, color=[220,220,220], radius=15) {
     source.addFeature(feature)
     map.render()
     dots.add([lon, lat])
-    console.log(lon, lat)
 }
 
 function drawStations(size=9) {
@@ -113,7 +112,6 @@ function drawStations(size=9) {
 
     let glbox = map.getView().calculateExtent(map.getSize());
     let box = ol.proj.transformExtent(glbox,'EPSG:3857','EPSG:4326');
-    console.log(box)
 
     let right = box[2], left = box[0], top = box[3], bottom = box[1]
     
@@ -122,34 +120,32 @@ function drawStations(size=9) {
     // drawDot(right, bottom, [0, 0, 255, 255])
     // drawDot(left, top, [0, 0, 0, 255])
 
-    const latInc = (right - left)/size
-    const lonInc = (top - bottom)/size
+    const lonInc = (right - left)/size
+    const latInc = (top - bottom)/size
 
-    let counter = {done:false}
+    let counter = {done: false}
     let c = size**2
     var none = true
 
     waitForCond(counter, "done", () => {
         counter["done"] = (c === 0)
-        return counter
     }).then(() => {
         if (none) {
             alert("No stations in your area")
         }
     })
-    const startLat = lat - Math.floor(size/2) * latInc
-    const startLon = lon - Math.floor(size/2) * lonInc
+    const startLat = bottom + latInc/2
+    const startLon = left + lonInc/2
 
     for (row = 0; row < size; row++) {
         for (column = 0; column < size; column++) {
-            getPolutionData(startLon + lonInc * row, startLat + latInc * column).then(data => {
+            // drawDot(startLon + lonInc * row, startLat + latInc * column, [255,0,0,255])
+            getPolutionData(startLon + lonInc * column, startLat + latInc * row).then(data => {
                 c -= 1
                 if (!data.city) return
+                let [resLat, resLon] = data.latLon
 
-                let [resLat, resLon] = data.city.geo
-                console.log(resLat, resLon)
                 if (resLat > top || resLon > right || resLat < bottom || resLon < left) return
-
                 none = false
 
                 if (data.iaqi["pm25"]){
@@ -173,7 +169,7 @@ function waitForCond(obj, cond, update=() => {return obj}, state=true) {
                 resolve()
             }
             else {
-                o = update()
+                update()
                 setTimeout(check, 450, o)
             }
         }
