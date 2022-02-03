@@ -14,14 +14,33 @@ function generateMap() {
     })
     source = new ol.source.Vector()
     vector = new ol.layer.Vector({
-        source: source
+        source: source,
+        updateWhileAnimating: true,
+        updateWhileInteracting: true
     })
 
-    return new ol.Map({
+    let m = new ol.Map({
         view: view,
         layers: [tileLayer, vector],
         target: 'js-map'
     })
+
+    m.on("pointermove", event => {
+        if (event.dragging) return
+
+        const eventPix = map.getEventPixel(event.originalEvent)
+
+        vector.getFeatures(eventPix).then(features => {
+            for (i=0; i < features.length; i++) {
+                let s = features[i].getStyle()
+                console.log(s)
+                let col = s.image.fill.color
+                col[3] = 1
+                features[i].setStyle(s)
+            }
+        })
+    })
+    return m
 }
 
 function goToCoord(lon, lat, onDone=() => {}) {
@@ -44,6 +63,34 @@ function goToCoord(lon, lat, onDone=() => {}) {
         onDone(Array.prototype.slice.call(arguments, 3))
     })
     
+}
+
+function isWater(lon, lat) {
+    const blue = [170, 211, 223]
+
+    var xy = map.getPixelFromCoordinate(ol.proj.fromLonLat([lon, lat]))
+
+    var canvasContext = document.getElementById("js-map").querySelector("canvas").getContext('2d')
+
+    let width = 5, height = 5
+
+    let blues = 0
+
+    const startX = xy[0] - Math.floor(width/2)
+    const startY = xy[1] - Math.floor(height/2)
+
+    for (vert = 0; vert < height; vert++) {
+        for (hor = 0; hor < width; hor++) {
+            xy = [hor + startX, vert + startY]
+            pixelAtXY = canvasContext.getImageData(xy[0], xy[1], 1, 1).data
+            for (i = 0; i < blue.length; i++) {
+                if (blue[i] !== pixelAtXY[i]) {
+                    blues++
+                }
+            }
+        }
+    }
+    return blues <= width * height * 2/3
 }
 
 function zoom(z=4) {
@@ -82,11 +129,12 @@ function getMapState() {
     }
 }
 
-function drawDot(lon, lat, color=[220,220,220], radius=15) {
+function drawDot(lon, lat, color=[220,220,220, .5], radius=15) {
     if (dots.has([lon, lat])) return
     let feature = new ol.Feature({
         geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
     })
+    color.push(.5)
     // var polygon = ol.geom.Polygon.circular([parseFloat(response[0].lon), parseFloat(response[0].lat)], 4000);
     let colorStyle = new ol.style.Style({
         image: new ol.style.Circle({
@@ -142,7 +190,7 @@ function drawGrid(size=9) {
                 c -= 1
 
                 let [resLat, resLon] = data.latLon
-
+                if (isWater(resLon, resLat)) return
                 // if (resLat > top || resLon > right || resLat < bottom || resLon < left) return
                 none = false
 
