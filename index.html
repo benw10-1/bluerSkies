@@ -15,18 +15,13 @@
     <body>
         <div id="navbarMenu" class="navbar">
             <div class="navbar-brand">
-                
+
             </div>
         </div>
-    
-        <div class="menu">
-            <h3>Enter a zip code and click "OK" or scroll the map and click "Search here" to see air pollution levels for different locations</h3>
-            <form>
-                <label for="zip">Zip Code:</label><br>
-                <input type="text" id="enterZip" name="zip"><br>
-            </form> 
-            <button type="button" id="ok">Search this Zip</button><br>
-            <button type="button" id="here">Search this map location</button>
+        
+        <div id="popup" class="ol-popup">
+            <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+            <div id="popup-content">popup</div>
         </div>
         
         <div id="js-map" class="map"></div>

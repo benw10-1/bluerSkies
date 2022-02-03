@@ -1,4 +1,4 @@
-var view, map, fetched, city, zip, source, js_map, highlighted, old
+var view, map, fetched, city, zip, source, js_map, highlighted, old, container, content, closer, overlay
 const AQkey = "03e6687524e359bbf0987c0f2ede90cb945e4404"
 // city and zip are global variables to store the original found location so we can compare later
 
@@ -17,26 +17,32 @@ function generateMap() {
         updateWhileAnimating: true,
         updateWhileInteracting: true
     })
+    overlay = new ol.Overlay({
+        element: container,
+        autoPan: {
+            animation: {
+                duration: 250
+            }
+        }
+    })
 
     let m = new ol.Map({
         view: view,
+        overlays: [overlay],
         layers: [tileLayer, vector],
         target: 'js-map'
     })
 
-    vector2 = new ol.layer.Vector({
-        source: new ol.source.Vector(),
-        map: m,
-        updateWhileAnimating: true,
-        updateWhileInteracting: true,
-        zIndex: 2
-    })
+    
 
     m.on("click", event => {
         if (event.dragging) return
         if (highlighted) {
             highlighted.setStyle(old)
         }
+
+        overlay.setPosition(undefined)
+        closer.blur()
 
         const eventPix = map.getEventPixel(event.originalEvent)
 
@@ -56,6 +62,11 @@ function generateMap() {
                 })
 
                 features[i].setStyle(colorStyle)
+
+                let ext = features[i].getGeometry().getExtent();
+                let coordinate = ol.extent.getCenter(ext)
+
+                overlay.setPosition(coordinate)
 
                 old = imgFill
                 highlighted = features[i]
@@ -112,7 +123,7 @@ function isWater(lon, lat) {
             }
         }
     }
-    return blues <= width * height * .9
+    return blues <= width * height * .2
 }
 
 function zoom(z=4) {
@@ -170,11 +181,9 @@ function drawDot(lon, lat, color=[220,220,220, .5], radius=15, src=source) {
     return feature
 }
 
-function drawGrid(size=9) {
-    if (arguments[0] !== undefined) {
-        size = arguments[0]
-    }
-
+function drawGrid() {
+    const size = 9
+    console.log("ran")
     source.clear()
 
     let glbox = map.getView().calculateExtent(map.getSize())
@@ -182,32 +191,32 @@ function drawGrid(size=9) {
 
     let right = box[2], left = box[0], top = box[3], bottom = box[1]
 
+    let perHeight = glbox[0]
+
     const lonInc = (right - left)/size
     const latInc = (top - bottom)/size
 
-    let counter = {done: false}
-    let c = size**2
-    var none = false
+    // let counter = {done: false}
+    // let c = size**2
+    // var none = false
 
-    waitForCond(counter, "done", () => {
-        counter["done"] = (c === 0)
-    }).then(() => {
-        if (none) {
-            alert("No stations in your area")
-        }
-    })
+    // waitForCond(counter, "done", () => {
+    //     counter["done"] = (c === 0)
+    // }).then(() => {
+    //     if (none) {
+    //         alert("No stations in your area")
+    //     }
+    // })
     const startLat = bottom + latInc/2
     const startLon = left + lonInc/2
 
     for (row = 0; row < size; row++) {
         for (column = 0; column < size; column++) {
             getPolutionData(startLon + lonInc * column, startLat + latInc * row).then(data => {
-                c -= 1
-
                 let [resLat, resLon] = data.latLon
                 if (isWater(resLon, resLat)) return
                 // if (resLat > top || resLon > right || resLat < bottom || resLon < left) return
-                none = false
+                // none = false
 
                 if (data.iaqi["pm25"]){
                     val = data.iaqi["pm25"].v
