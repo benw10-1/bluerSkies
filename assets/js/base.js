@@ -1,9 +1,10 @@
-var view, map, fetched, city, zip, source, js_map, highlighted, old, container, content, closer, overlay, popped, circleRad
+var view, map, fetched, city, zip, source, js_map, highlighted, old, container, content, closer, overlay, popped, circleRad, first, drawDisabled, search, oHeight, oWidth
 
 const AQkey = "03e6687524e359bbf0987c0f2ede90cb945e4404"
 const constRad = 15
 const pollTypes = ["pm25", "no2", "co", "so2", "nh3", "o3", "pm10"]
 const pollVals = ["PM<sub>2.5</sub> : ", "NO<sub>2</sub> : ", "CO : ", "SO<sub>2</sub> : ", "NH<sub>3</sub> : ", "O<sub>3</sub> : ", "PM<sub>10</sub> : "]
+const allowedChars = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
 function generateMap() {
     view = new ol.View({
@@ -48,7 +49,7 @@ function generateMap() {
         map.forEachFeatureAtPixel(eventPix, (feature, layer) => {
             if (!feature) return
             if (highlighted) return
-            const col = [170, 211, 223, 1]
+            const col = [37, 122, 253, .5]
 
             let imgFill = feature.getStyle()
 
@@ -80,6 +81,10 @@ function generateMap() {
 
         if (!counter) {
             clearPopup()
+            map.getViewport().style.cursor = 'inherit'
+        }
+        else {
+            map.getViewport().style.cursor = 'pointer'
         }
     })
     return m
@@ -105,10 +110,17 @@ function clearPopup () {
     popped = false
 }
 
+function searchZip(zip) {
+    getLocationData(0, 0, zip).then(data => {
+        goToCoord(data.lon, data.lat, drawGrid)
+    })
+}
+
 function goToCoord(lon, lat, onDone=() => {}) {
     if (map === undefined) {
         return
     }
+    setInteractions(false)
     view.animate({
         center: ol.proj.fromLonLat([lon, lat]),
         duration: 2000
@@ -116,15 +128,23 @@ function goToCoord(lon, lat, onDone=() => {}) {
     view.animate({
         zoom: 10,
         duration: 2000
-    }, interrupted => {
-        if (!interrupted) {
-            view.setCenter(ol.proj.fromLonLat([lon, lat]))
-            view.setZoom(8)
-            return
-        }
+    }, finished => {
+        setInteractions(true)
         onDone(Array.prototype.slice.call(arguments, 3))
     })
     
+}
+
+function setInteractions(active) {
+    let plus = document.querySelector(".ol-zoom-in")
+    let minus = document.querySelector(".ol-zoom-out")
+
+    plus.disabled = !active
+    minus.disabled = !active
+
+    map.getInteractions().forEach(function (interaction) {
+        interaction.setActive(active)
+    }, this)
 }
 
 function isWater(lon, lat) {
@@ -134,9 +154,9 @@ function isWater(lon, lat) {
 
     var canvasContext = document.getElementById("js-map").querySelector("canvas").getContext('2d')
 
-    let width = 7, height = 7
+    let width = 10, height = 10
 
-    let blues = 0
+    let not_blues = 0
 
     const startX = xy[0] - Math.floor(width/2)
     const startY = xy[1] - Math.floor(height/2)
@@ -147,31 +167,33 @@ function isWater(lon, lat) {
             pixelAtXY = canvasContext.getImageData(xy[0], xy[1], 1, 1).data
             for (i = 0; i < blue.length; i++) {
                 if (blue[i] !== pixelAtXY[i]) {
-                    blues++
+                    not_blues++
+                    break
                 }
             }
+            
         }
     }
-    return blues <= width * height * .2
+    return width * height * .8 >= not_blues
 }
 
-function zoom(z=4) {
-    if (map === undefined) {
-        return
-    }
-    map.getView().setZoom(z)
-}
+function getLocationData(lon, lat, zip=null) {
+    let url = "https://api.waqi.info/feed/geo:" + lat + ";" + lon + "/?token=" + AQkey
+    
+    if (zip) url = "https://nominatim.openstreetmap.org/search?postalcode=" + zip + "&country=USA&format=json"
 
-function getPolutionData(lon, lat) {
-    let pollutionUrl = "https://api.waqi.info/feed/geo:" + lat + ";" + lon + "/?token=" + AQkey
-
-    return fetch(pollutionUrl).then(response => {
+    return fetch(url).then(response => {
         return response.json()
     }).catch(error => {
         console.log("error: ", error)
     }).then(result => {
-        if (result.status !== "ok") return 
-        result.data.latLon = [lat, lon]
+        if (result["lat"] && result["lon"]) {
+            console.log("asd")
+            return result[0]
+        }
+        if (result.status !== "ok") return
+        result.data.lonLat = [lon, lat]
+
         return result.data
     })
 }
@@ -182,8 +204,8 @@ function getMapState() {
     return {
         center: view.getCenter(), 
         zoom: view.getZoom(),
-        x: view.getCenter()[0],
-        y: view.getCenter()[1],
+        lon: view.getCenter()[0],
+        lat: view.getCenter()[1],
         interacting: view.getInteracting(),
         animating: view.getAnimating(),
         resolutionForZoom: view.getResolutionForZoom(view.getZoom()),
@@ -215,13 +237,14 @@ function drawDot(lon, lat, color=[220,220,220, .5], data=null) {
         colorStyle.getImage().setScale(map.getView().getResolutionForZoom(10) / resolution)
         return colorStyle
     })
-
+    
     source.addFeature(feature)
 
     return feature
 }
 
 function drawGrid() {
+    if (drawDisabled) return
     source.clear()
 
     let glbox = map.getView().calculateExtent(map.getSize())
@@ -233,7 +256,9 @@ function drawGrid() {
     let height = top - bottom
 
     const rowSize = 9
-    const columnSize = Math.floor(rowSize * (width/height))
+    const columnSize = Math.round(rowSize * (width/height))
+
+    drawDisabled = rowSize * columnSize
 
     circleRad = constRad / (map.getView().getResolutionForZoom(10) / getMapState().resolution)
 
@@ -245,20 +270,25 @@ function drawGrid() {
 
     for (row = 0; row < rowSize; row++) {
         for (column = 0; column < columnSize; column++) {
-            getPolutionData(startLon + lonInc * column, startLat + latInc * row).then(data => {
-                let [resLat, resLon] = data.latLon
+            getLocationData(startLon + lonInc * column, startLat + latInc * row).then(data => {
+                drawDisabled -= 1
+                if (!data) return
+
+                let [resLon, resLat] = data.lonLat
                 if (isWater(resLon, resLat)) return
-                // if (resLat > top || resLon > right || resLat < bottom || resLon < left) return
-                // none = false
 
                 let d = []
-                let val = 0
+                let val
 
                 for (i = 0; i < pollTypes.length; i++) {
                     if (data["iaqi"].hasOwnProperty(pollTypes[i])) {
                         if (pollTypes[i] === "pm25") val = data["iaqi"][pollTypes[i]].v
                         d.push(pollVals[i] + data["iaqi"][pollTypes[i]].v)
                     }
+                }
+                if (!val && data["aqi"]) {
+                    val = data["aqi"]
+                    d.push(pollVals[0] + data["aqi"])
                 }
 
                 let color = [Math.min(val * 2, 255), Math.max(255 - val * 2, 0), Math.min(Math.max(0, 2 * (val - 70)), 255), .5]
@@ -267,19 +297,4 @@ function drawGrid() {
             })
         }
     }
-}
-
-function waitForCond(obj, cond, update=() => {return obj}, state=true) {
-    return new Promise(resolve => {
-        function check(o) {
-            if (o[cond] === state) {
-                resolve()
-            }
-            else {
-                update()
-                setTimeout(check, 450, o)
-            }
-        }
-        check(obj)
-    })
 }

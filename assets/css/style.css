@@ -16,16 +16,10 @@ body {
     color:rgb(51, 51, 189)
 }
 
-.menu{
+.menu {
     background-color:rgb(119, 119, 235);
     display:flex;
     justify-content:center;
-}
-
-.map {
-    height: 500px;
-    width: 500px;  
-    margin:auto;  
 }
 
 .line{
@@ -37,11 +31,12 @@ body {
 }
 
 .map {
-    width: 50%;
+    width: 750px;
     box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
     padding: 10px;
-    margin-top: 10px;
-    height: 80%;
+    /* margin-top: 10px; */
+    margin-top: 5%;
+    height: 750px;
 }
 
 .ol-popup {
@@ -81,4 +76,17 @@ body {
 sub {
     font-size: xx-small; 
     vertical-align: sub;
+}
+
+.main-content {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    vertical-align: middle;
+}
+
+.search-history {
+    width: 25%;
+    height: 100%;
+    box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
 }

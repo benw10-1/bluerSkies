@@ -1,10 +1,12 @@
 window.onload = function () {
     container = document.getElementById('popup')
     content = document.getElementById('popup-content')
+    search = document.getElementById('')
+
 
     map = generateMap()
 
-    fetch("https://ipapi.co/json/").then(response => {
+    fetch("https://ipapi.co/json/", {mode:'cors'}).then(response => {
         return response.json()
     }).then(data => {
         let lat = data["latitude"], lon = data["longitude"]
@@ -13,11 +15,7 @@ window.onload = function () {
 
         if (lat && lon) {
             goToCoord(lon, lat, drawGrid)
-            // waitForCond({animating: true}, "animating", getMapState, false).then(drawGrid)
         }
-        
-
-        
     }).catch(error => {
         let lat = 34.07440, lon = -117.40499
         zip = "90210"
@@ -28,10 +26,6 @@ window.onload = function () {
 
 window.addEventListener("keydown", function (event) {
     if (event.code == "Space") {
-        // if (map !== undefined) {
-        //     goToCoord(-96.21, 37.46)
-        // }
-        // Test code in this block
         drawGrid()
         // console.log(getMapState().resolution)
     }
