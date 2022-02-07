@@ -1,10 +1,11 @@
-var view, map, fetched, city, zip, source, js_map, highlighted, old, container, content, closer, overlay, popped, circleRad, first, drawDisabled, search, oHeight, oWidth
+var view, map, fetched, city, zip, source, js_map, highlighted, old, container, content, closer, overlay, popped, circleRad, first, search, oHeight, oWidth, loading, position, zoom
 
+const dotsAmt = 9
 const AQkey = "03e6687524e359bbf0987c0f2ede90cb945e4404"
 const constRad = 15
 const pollTypes = ["pm25", "no2", "co", "so2", "nh3", "o3", "pm10"]
 const pollVals = ["PM<sub>2.5</sub> : ", "NO<sub>2</sub> : ", "CO : ", "SO<sub>2</sub> : ", "NH<sub>3</sub> : ", "O<sub>3</sub> : ", "PM<sub>10</sub> : "]
-const allowedChars = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+const allowedKeys = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "Enter", "Shift", " ", ",", 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', "-"]
 
 function generateMap() {
     view = new ol.View({
@@ -25,7 +26,7 @@ function generateMap() {
         element: container,
         autoPan: {
             animation: {
-              duration: 250,
+                duration: 250,
             }
         }
     })
@@ -54,18 +55,18 @@ function generateMap() {
             let imgFill = feature.getStyle()
 
             let colorStyle = new ol.style.Style({
-                    image: new ol.style.Circle({
-                        radius: circleRad,
-                        fill: new ol.style.Fill({ 
-                            color: col
-                        })
+                image: new ol.style.Circle({
+                    radius: circleRad,
+                    fill: new ol.style.Fill({
+                        color: col
                     })
+                })
             })
 
             feature.setStyle(colorStyle)
-            
+
             feature.setStyle(function (feature, resolution) {
-                colorStyle.getImage().setScale(map.getView().getResolutionForZoom(10) / resolution)
+                colorStyle.getImage().setScale(map.getView().getResolutionForZoom(zoom) / resolution)
                 return colorStyle
             })
 
@@ -91,11 +92,11 @@ function generateMap() {
 }
 
 function popupInfo(pos, info) {
-    if (popped) return
+    if (popped || !info) return
     overlay.setPosition(pos)
-    
+
     content.innerHTML = ""
-    
+
     for (i = 0; i < info.length; i++) {
         let p = document.createElement("p")
         p.innerHTML = info[i]
@@ -105,34 +106,55 @@ function popupInfo(pos, info) {
     popped = true
 }
 
-function clearPopup () {
+function clearPopup() {
     overlay.setPosition(undefined)
     popped = false
 }
 
-function searchZip(zip) {
-    getLocationData(0, 0, zip).then(data => {
-        goToCoord(data.lon, data.lat, drawGrid)
+function searchLocation(location) {
+    getLocationData(location).then(data => {
+        if (!data) return
+
+        let box = data.boundingbox
+        let left = box[2], right = box[3], bottom = box[0], top = box[1]
+        goToCoord(data.lon, data.lat, [left, bottom], [right, top], drawGrid)
     })
 }
 
-function goToCoord(lon, lat, onDone=() => {}) {
+function goToCoord(lon, lat, min, max, onDone = () => { }) {
     if (map === undefined) {
         return
     }
+
+    setLoading(true)
     setInteractions(false)
+    source.clear()
+
+    setZoomLevel(min, max)
+
     view.animate({
         center: ol.proj.fromLonLat([lon, lat]),
-        duration: 2000
-    })
-    view.animate({
-        zoom: 10,
+        zoom: zoom,
         duration: 2000
     }, finished => {
         setInteractions(true)
+        setLoading(false)
         onDone(Array.prototype.slice.call(arguments, 3))
     })
+}
+// left-bottom, right-top [LON, LAT]
+function setZoomLevel(min, max) {
+    let storedExtent = map.getView().calculateExtent(map.getSize())
+
+    let points = [ol.proj.fromLonLat(min), ol.proj.fromLonLat(max), ol.proj.fromLonLat([max[0], min[1]]), ol.proj.fromLonLat([min[0], max[1]])]
+
+    let geo = new ol.geom.Polygon([points], "XY")
     
+    map.getView().fit(geo)
+
+    zoom = Math.min(map.getView().getZoom(), 14)
+
+    map.getView().fit(storedExtent)
 }
 
 function setInteractions(active) {
@@ -158,8 +180,8 @@ function isWater(lon, lat) {
 
     let not_blues = 0
 
-    const startX = xy[0] - Math.floor(width/2)
-    const startY = xy[1] - Math.floor(height/2)
+    const startX = xy[0] - Math.floor(width / 2)
+    const startY = xy[1] - Math.floor(height / 2)
 
     for (vert = 0; vert < height; vert++) {
         for (hor = 0; hor < width; hor++) {
@@ -171,38 +193,55 @@ function isWater(lon, lat) {
                     break
                 }
             }
-            
+
         }
     }
-    return width * height * .8 >= not_blues
+    return width * height * .9 >= not_blues
 }
 
-function getLocationData(lon, lat, zip=null) {
-    let url = "https://api.waqi.info/feed/geo:" + lat + ";" + lon + "/?token=" + AQkey
-    
-    if (zip) url = "https://nominatim.openstreetmap.org/search?postalcode=" + zip + "&country=USA&format=json"
+function getLocationData() {
+    let url
+
+    if (arguments.length === 2) {
+        url = "https://api.waqi.info/feed/geo:" + arguments[1] + ";" + arguments[0] + "/?token=" + AQkey
+    }
+    else {
+        setLoading(true)
+        url = "https://nominatim.openstreetmap.org/search?q=" + arguments[0] + "&country=USA&format=json"
+    }
 
     return fetch(url).then(response => {
         return response.json()
     }).catch(error => {
         console.log("error: ", error)
     }).then(result => {
-        if (result["lat"] && result["lon"]) {
-            console.log("asd")
-            return result[0]
-        }
-        if (result.status !== "ok") return
-        result.data.lonLat = [lon, lat]
+        if (result instanceof Array) {
+            let imp = Infinity
+            let imp_i = 0
 
+            for (const i in result) {
+                // let dist = getDistanceLonLat([result[i].lon, result[i].lat], position)
+
+                if (result[i].importance >= imp) {
+                    imp = result[i].importance
+                    imp_i = i
+                }
+            }
+            
+            return result[imp_i]
+        }
+        
+        if (result.status !== "ok") return
+        result.data.lonLat = [arguments[0], arguments[1]]
         return result.data
     })
 }
 
 function getMapState() {
     if (!map) return
-    let view =  map.getView()
+    let view = map.getView()
     return {
-        center: view.getCenter(), 
+        center: view.getCenter(),
         zoom: view.getZoom(),
         lon: view.getCenter()[0],
         lat: view.getCenter()[1],
@@ -213,15 +252,25 @@ function getMapState() {
     }
 }
 
-function drawDot(lon, lat, color=[220,220,220, .5], data=null) {
+function setLoading(state) {
+    if (state) {
+        search.parentElement.classList.add("is-loading")
+    }
+    else {
+        search.parentElement.classList.remove("is-loading")
+    }
+    loading = state
+}
+
+function drawDot(lon, lat, color = [220, 220, 220, .5], data = null) {
     let feature = new ol.Feature({
         geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
     })
 
     let colorStyle = new ol.style.Style({
         image: new ol.style.Circle({
-            radius: circleRad,
-            fill: new ol.style.Fill({ 
+            radius: circleRad ?? constRad,
+            fill: new ol.style.Fill({
                 color: color
             })
         })
@@ -234,48 +283,53 @@ function drawDot(lon, lat, color=[220,220,220, .5], data=null) {
     feature.setStyle(colorStyle)
 
     feature.setStyle(function (feature, resolution) {
-        colorStyle.getImage().setScale(map.getView().getResolutionForZoom(10) / resolution)
+        colorStyle.getImage().setScale(map.getView().getResolutionForZoom(zoom) / resolution)
         return colorStyle
     })
-    
+
     source.addFeature(feature)
 
     return feature
 }
 
 function drawGrid() {
-    if (drawDisabled) return
     source.clear()
 
+    setLoading(true)
+
     let glbox = map.getView().calculateExtent(map.getSize())
-    let box = ol.proj.transformExtent(glbox,'EPSG:3857','EPSG:4326')
+    let box = ol.proj.transformExtent(glbox, 'EPSG:3857', 'EPSG:4326')
 
     let right = box[2], left = box[0], top = box[3], bottom = box[1]
 
     let width = right - left
     let height = top - bottom
 
-    const rowSize = 9
-    const columnSize = Math.round(rowSize * (width/height))
+    const rowSize = dotsAmt * Math.round(height / width)
+    const columnSize = dotsAmt * Math.round((width / height))
 
-    drawDisabled = rowSize * columnSize
+    let c = rowSize * columnSize
 
-    circleRad = constRad / (map.getView().getResolutionForZoom(10) / getMapState().resolution)
+    circleRad = constRad / (map.getView().getResolutionForZoom(zoom) / getMapState().resolution)
 
-    const lonInc = width/columnSize
-    const latInc = height/rowSize
+    const lonInc = width / columnSize
+    const latInc = height / rowSize
 
-    const startLat = bottom + latInc/2
-    const startLon = left + lonInc/2
+    const startLat = bottom + latInc / 2
+    const startLon = left + lonInc / 2
 
     for (row = 0; row < rowSize; row++) {
         for (column = 0; column < columnSize; column++) {
             getLocationData(startLon + lonInc * column, startLat + latInc * row).then(data => {
-                drawDisabled -= 1
+                c -= 1
+
                 if (!data) return
 
                 let [resLon, resLat] = data.lonLat
-                if (isWater(resLon, resLat)) return
+                if (isWater(resLon, resLat)) {
+                    if (c === 0) setLoading(false)
+                    return
+                }
 
                 let d = []
                 let val
@@ -294,7 +348,37 @@ function drawGrid() {
                 let color = [Math.min(val * 2, 255), Math.max(255 - val * 2, 0), Math.min(Math.max(0, 2 * (val - 70)), 255), .5]
 
                 drawDot(resLon, resLat, color, d)
+                if (c === 0) setLoading(false)
             })
         }
     }
+}
+
+function handleInput(el, event) {
+    if (event.key === "Backspace") return
+
+    if (allowedKeys.indexOf(event.key) < 0) event.preventDefault()
+
+    if (event.key === "Enter" && !loading) searchLocation(el.value)
+}
+
+// 0-lon 1-lat
+function getDistanceLonLat(pos1, pos2) {
+    let temp = pos1[0]
+    pos1[0] = pos1[1]
+    pos1[0] = temp
+
+    temp = pos2[0]
+    pos2[0] = pos2[1]
+    pos2[0] = temp
+
+    const R = 6371
+
+    let [dLat, dLon] = [(pos2[0] - pos1[0]) * (Math.PI / 180), (pos2[1] - pos1[1]) * (Math.PI / 180)]
+
+    let a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos((pos1[0]) * (Math.PI / 180)) * Math.cos((pos2[0]) * (Math.PI / 180)) * Math.sin(dLon/2) * Math.sin(dLon/2)
+
+    let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+    // radius of the earth times circumference section of a sphere between "coordinates" pos1 and pos2
+    return R * c
 }
