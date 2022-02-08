@@ -5,7 +5,7 @@ const AQkey = "03e6687524e359bbf0987c0f2ede90cb945e4404"
 const constRad = 15
 const pollTypes = ["pm25", "no2", "co", "so2", "nh3", "o3", "pm10"]
 const pollVals = ["PM<sub>2.5</sub> : ", "NO<sub>2</sub> : ", "CO : ", "SO<sub>2</sub> : ", "NH<sub>3</sub> : ", "O<sub>3</sub> : ", "PM<sub>10</sub> : "]
-const allowedKeys = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "Enter", "Shift", " ", ",", 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', "-"]
+const allowedKeys = ["ArrowRight", "ArrowLeft", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "Enter", "Shift", " ", ",", 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', "-"]
 
 function generateMap() {
     view = new ol.View({
@@ -139,7 +139,7 @@ function goToCoord(lon, lat, min, max, onDone = () => { }) {
     }, finished => {
         setInteractions(true)
         setLoading(false)
-        onDone(Array.prototype.slice.call(arguments, 3))
+        onDone()
     })
 }
 // left-bottom, right-top [LON, LAT]
@@ -152,7 +152,7 @@ function setZoomLevel(min, max) {
     
     map.getView().fit(geo)
 
-    zoom = Math.min(map.getView().getZoom(), 14)
+    zoom = Math.max(Math.min(map.getView().getZoom(), 14), 4)
 
     map.getView().fit(storedExtent)
 }
@@ -209,19 +209,16 @@ function getLocationData() {
         setLoading(true)
         url = "https://nominatim.openstreetmap.org/search?q=" + arguments[0] + "&country=USA&format=json"
     }
-
     return fetch(url).then(response => {
         return response.json()
     }).catch(error => {
         console.log("error: ", error)
     }).then(result => {
+        console.log(result)
         if (result instanceof Array) {
             let imp = Infinity
             let imp_i = 0
-
             for (const i in result) {
-                // let dist = getDistanceLonLat([result[i].lon, result[i].lat], position)
-
                 if (result[i].importance >= imp) {
                     imp = result[i].importance
                     imp_i = i
@@ -294,7 +291,6 @@ function drawDot(lon, lat, color = [220, 220, 220, .5], data = null) {
 
 function drawGrid() {
     source.clear()
-
     setLoading(true)
 
     let glbox = map.getView().calculateExtent(map.getSize())
@@ -305,7 +301,7 @@ function drawGrid() {
     let width = right - left
     let height = top - bottom
 
-    const rowSize = dotsAmt * Math.round(height / width)
+    const rowSize = dotsAmt
     const columnSize = dotsAmt * Math.round((width / height))
 
     let c = rowSize * columnSize
@@ -317,12 +313,11 @@ function drawGrid() {
 
     const startLat = bottom + latInc / 2
     const startLon = left + lonInc / 2
-
+    console.log(rowSize, columnSize)
     for (row = 0; row < rowSize; row++) {
         for (column = 0; column < columnSize; column++) {
             getLocationData(startLon + lonInc * column, startLat + latInc * row).then(data => {
                 c -= 1
-
                 if (!data) return
 
                 let [resLon, resLat] = data.lonLat

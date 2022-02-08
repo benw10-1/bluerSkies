@@ -41,10 +41,3 @@ window.onload = function () {
         })
     })
 }
-
-window.addEventListener("keydown", (event) => {
-    if (event.code == "Space") {
-        // drawGrid()
-        // console.log(getMapState().resolution)
-    }
-})

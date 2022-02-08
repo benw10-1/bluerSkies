@@ -8,18 +8,11 @@ html {
 
 body {
     height: 100%;
-}
-
-.banner {
-    background-image: url('../images/clouds.png');
-    text-align:center;
-    color:rgb(51, 51, 189)
-}
-
-.menu {
-    background-color:rgb(119, 119, 235);
-    display:flex;
-    justify-content:center;
+    overflow: hidden;
+    background-image: url("../images/logo.png");
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center;
 }
 
 .line{
@@ -31,12 +24,13 @@ body {
 }
 
 .map {
-    width: 750px;
+    width: 50em;
     box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
     padding: 10px;
     /* margin-top: 10px; */
-    margin-top: 5%;
-    height: 750px;
+    /* margin-top: 5%; */
+    height: 50em;
+    background-color: white;
 }
 
 .ol-popup {
@@ -78,15 +72,59 @@ sub {
     vertical-align: sub;
 }
 
-.main-content {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-evenly;
-    vertical-align: middle;
+.search-history {
+    width: 50em;
+    height: 50em;
+    box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+    background-color: white;
+    min-width: fit-content;
 }
 
-.search-history {
-    width: 25%;
+.search-header {
+    text-align: center;
+    font-size: 50px;
+    padding: .75em;
+    border-bottom: solid 2px black;
+}
+
+.searches {
+    overflow-y: scroll;
+    
+}
+
+.navbar-menu {
+    justify-content: center;
+}
+
+.map-container {
+    width: 100%;
     height: 100%;
-    box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.columns {
+    height: 90vh;
+    padding: 0;
+}
+.column {
+    padding: 0;
+}
+
+#search {
+    width: 20em;
+    text-align: center;
+    outline: none;
+    border: none;
+    box-shadow: none;
+}
+
+.nav {
+    padding-top: .5em;
+    padding-bottom: .5em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    background-color: white;
 }

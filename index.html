@@ -11,33 +11,37 @@
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
 
         <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.12.0/build/ol.js"></script>
+
         <script type="text/javascript" src="assets/js/base.js"></script>
         <script type="text/javascript" src="assets/js/scr.js"></script>
+
         <title>Bluer Skies</title>
     </head>
 
     <body>
-        <div id="navbarMenu" class="navbar">
-            <div class="navbar-brand">
-                
+        <div class="nav">
+            <div class="control">
+                <input id="search" class="input is-large" type="text" placeholder="Search location..." autocomplete="off"></input>
             </div>
-            <div class="navbar-menu">
-                <div class="navbar-start">
-
+        </div>
+        <div class="columns">
+            <div class="column" id="map-column">
+                <div class="map-container">
+                    <div id="js-map" class="map"></div>
                 </div>
-                <div class="navbar-end">
-                    <div class="control">
-                        <input id="search" class="input is-normal is-rounded" type="text" placeholder="Search location..." autocomplete="off"></input>
+            </div>
+            <div class="column" id="search-column">
+                <div class="map-container">
+                    <div class="search-history">
+                        <div class="search-header">
+                            <p>Search History</p>
+                        </div>
+                        <div class="searches">
+
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-
-        <div class="main-content">
-            <div id="js-map" class="map"></div>
-            <!-- <div class="search-history">
-                
-            </div> -->
         </div>
         
         <div id="popup" class="ol-popup">
