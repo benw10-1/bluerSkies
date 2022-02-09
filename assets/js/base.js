@@ -1,11 +1,14 @@
-var view, map, fetched, city, zip, source, js_map, highlighted, old, container, content, closer, overlay, popped, circleRad, first, search, oHeight, oWidth, loading, position, zoom
+var view, map, fetched, city, zip, source, js_map, highlighted, old, container, content, closer, overlay, popped, circleRad, first, search, oHeight, oWidth, loading, position, zoom, searches, searchHist, key
 
 const dotsAmt = 9
 const AQkey = "03e6687524e359bbf0987c0f2ede90cb945e4404"
 const constRad = 15
 const pollTypes = ["pm25", "no2", "co", "so2", "nh3", "o3", "pm10"]
-const pollVals = ["PM<sub>2.5</sub> : ", "NO<sub>2</sub> : ", "CO : ", "SO<sub>2</sub> : ", "NH<sub>3</sub> : ", "O<sub>3</sub> : ", "PM<sub>10</sub> : "]
+const pollVals = ["<strong>PM<sub>2.5</sub></strong> : ", "<strong>NO<sub>2</sub></strong> : ", "<strong>CO</strong> : ", "<strong>SO<sub>2</sub></strong> : ", "<strong>NH<sub>3</sub></strong> : ", "<strong>O<sub>3</sub></strong> : ", "<strong>PM<sub>10</sub></strong> : "]
 const allowedKeys = ["ArrowRight", "ArrowLeft", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "Enter", "Shift", " ", ",", 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', "-"]
+const searchCollumn = '<div class="column" id="search-column"> <div class="map-container"> <div class="search-history"> <div class="search-header"> <p>Search History</p> </div> <div class="searches"> </div> </div> </div> </div>'
+
+const average = arr => arr.reduce((a,b) => a + b, 0) / arr.length 
 
 function generateMap() {
     view = new ol.View({
@@ -38,57 +41,89 @@ function generateMap() {
         target: 'js-map'
     })
 
-    m.on("pointermove", event => {
-        if (event.dragging) return
-        if (highlighted) {
-            highlighted.setStyle(old)
+    m.on("pointermove", onMove)
+    return m
+}
+
+function loadSearches(obj) {
+    for (const k in obj) {
+        let container = document.createElement("div")
+        container.classList.add("search")
+        container.name = k
+
+        container.addEventListener("click", handleClick)
+
+        let bold = document.createElement("p")
+        bold.classList.add("search-name")
+        bold.innerHTML = k
+        container.appendChild(bold)
+
+        let info = document.createElement("p")
+        info.innerHTML = ""
+        info.classList.add("info")
+
+        let inner = ""
+
+        for (const prop in obj[k]) {
+            inner += prop + Math.round(average(obj[k][prop])) + "  "
         }
-        highlighted = undefined
-        const eventPix = map.getEventPixel(event.originalEvent)
-        let counter = 0
+        info.innerHTML = inner
 
-        map.forEachFeatureAtPixel(eventPix, (feature, layer) => {
-            if (!feature) return
-            if (highlighted) return
-            const col = [37, 122, 253, .5]
+        container.appendChild(info)
 
-            let imgFill = feature.getStyle()
+        searchHist.appendChild(container)
+    }
+}
 
-            let colorStyle = new ol.style.Style({
-                image: new ol.style.Circle({
-                    radius: circleRad,
-                    fill: new ol.style.Fill({
-                        color: col
-                    })
+function onMove(event) {
+    if (event.dragging) return
+    if (highlighted) {
+        highlighted.setStyle(old)
+    }
+    highlighted = undefined
+    const eventPix = map.getEventPixel(event.originalEvent)
+    let counter = 0
+
+    map.forEachFeatureAtPixel(eventPix, (feature, layer) => {
+        if (!feature) return
+        if (highlighted) return
+        const col = [37, 122, 253, .5]
+
+        let imgFill = feature.getStyle()
+
+        let colorStyle = new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: circleRad,
+                fill: new ol.style.Fill({
+                    color: col
                 })
             })
-
-            feature.setStyle(colorStyle)
-
-            feature.setStyle(function (feature, resolution) {
-                colorStyle.getImage().setScale(map.getView().getResolutionForZoom(zoom) / resolution)
-                return colorStyle
-            })
-
-            let ext = feature.getGeometry().getExtent();
-            let coordinate = ol.extent.getCenter(ext)
-
-            popupInfo(coordinate, feature.get("pollutionInfo"))
-
-            old = imgFill
-            highlighted = feature
-            counter++
         })
 
-        if (!counter) {
-            clearPopup()
-            map.getViewport().style.cursor = 'inherit'
-        }
-        else {
-            map.getViewport().style.cursor = 'pointer'
-        }
+        feature.setStyle(colorStyle)
+
+        feature.setStyle(function (feature, resolution) {
+            colorStyle.getImage().setScale(map.getView().getResolutionForZoom(zoom) / resolution)
+            return colorStyle
+        })
+
+        let ext = feature.getGeometry().getExtent();
+        let coordinate = ol.extent.getCenter(ext)
+
+        popupInfo(coordinate, feature.get("pollutionInfo"))
+
+        old = imgFill
+        highlighted = feature
+        counter++
     })
-    return m
+
+    if (!counter) {
+        clearPopup()
+        map.getViewport().style.cursor = 'inherit'
+    }
+    else {
+        map.getViewport().style.cursor = 'pointer'
+    }
 }
 
 function popupInfo(pos, info) {
@@ -99,7 +134,7 @@ function popupInfo(pos, info) {
 
     for (i = 0; i < info.length; i++) {
         let p = document.createElement("p")
-        p.innerHTML = info[i]
+        p.innerHTML = info[i][0] + info[i][1]
 
         content.appendChild(p)
     }
@@ -112,9 +147,9 @@ function clearPopup() {
 }
 
 function searchLocation(location) {
+    if (loading) return
     getLocationData(location).then(data => {
         if (!data) return
-
         let box = data.boundingbox
         let left = box[2], right = box[3], bottom = box[0], top = box[1]
         goToCoord(data.lon, data.lat, [left, bottom], [right, top], drawGrid)
@@ -214,9 +249,8 @@ function getLocationData() {
     }).catch(error => {
         console.log("error: ", error)
     }).then(result => {
-        console.log(result)
         if (result instanceof Array) {
-            let imp = Infinity
+            let imp = 0
             let imp_i = 0
             for (const i in result) {
                 if (result[i].importance >= imp) {
@@ -224,7 +258,8 @@ function getLocationData() {
                     imp_i = i
                 }
             }
-            
+
+            updateHistoryEl(result[imp_i].display_name.split(",").slice(0, 3).join(","))
             return result[imp_i]
         }
         
@@ -232,6 +267,62 @@ function getLocationData() {
         result.data.lonLat = [arguments[0], arguments[1]]
         return result.data
     })
+}
+
+function handleClick() {
+    let loc = this.name
+    search.value = loc
+    searchLocation(loc)
+}
+
+function updateHistoryEl(data) {
+    if (typeof data === "string") {
+        key = data
+        if (searches.hasOwnProperty(data)) return
+        searches[data] = {}
+
+        let container = document.createElement("div")
+        container.classList.add("search")
+        container.name = data
+
+        container.addEventListener("click", handleClick)
+
+        let bold = document.createElement("p")
+        bold.classList.add("search-name")
+        bold.innerHTML = data
+        container.appendChild(bold)
+
+        searchHist.appendChild(container)
+    }
+    else {
+        for (const i in searchHist.children) {
+            let child = searchHist.children[i]
+            if (child.name === key) {
+                if (child.children.length === 1) {
+                    let info = document.createElement("p")
+                    info.innerHTML = ""
+                    info.classList.add("info")
+                    child.appendChild(info)
+                }
+
+                let temp = {}
+                let inner = ""
+                for (const i in data) {
+                    for (const G in data[i]) {
+                        if (temp.hasOwnProperty(data[i][G][0])) data[i][0].push(data[i][G][1])
+                        else temp[data[i][G][0]] = [data[i][G][1]]
+                    }
+                }
+                for (const k in temp) {
+                    inner += k + Math.round(average(temp[k])) + "  "
+                }
+                child.children[1].innerHTML = inner
+                searches[key] = temp
+                break
+            }
+        }
+    }
+    localStorage.setItem("searches", JSON.stringify(searches))
 }
 
 function getMapState() {
@@ -295,7 +386,7 @@ function drawGrid() {
 
     let glbox = map.getView().calculateExtent(map.getSize())
     let box = ol.proj.transformExtent(glbox, 'EPSG:3857', 'EPSG:4326')
-
+    const center = ol.extent.getCenter(box)
     let right = box[2], left = box[0], top = box[3], bottom = box[1]
 
     let width = right - left
@@ -313,16 +404,16 @@ function drawGrid() {
 
     const startLat = bottom + latInc / 2
     const startLon = left + lonInc / 2
-    console.log(rowSize, columnSize)
+
+    let forHist = []
+    
     for (row = 0; row < rowSize; row++) {
         for (column = 0; column < columnSize; column++) {
             getLocationData(startLon + lonInc * column, startLat + latInc * row).then(data => {
-                c -= 1
                 if (!data) return
 
                 let [resLon, resLat] = data.lonLat
                 if (isWater(resLon, resLat)) {
-                    if (c === 0) setLoading(false)
                     return
                 }
 
@@ -332,18 +423,24 @@ function drawGrid() {
                 for (i = 0; i < pollTypes.length; i++) {
                     if (data["iaqi"].hasOwnProperty(pollTypes[i])) {
                         if (pollTypes[i] === "pm25") val = data["iaqi"][pollTypes[i]].v
-                        d.push(pollVals[i] + data["iaqi"][pollTypes[i]].v)
+                        d.push([pollVals[i], data["iaqi"][pollTypes[i]].v])
                     }
                 }
                 if (!val && data["aqi"]) {
                     val = data["aqi"]
-                    d.push(pollVals[0] + data["aqi"])
+                    d.push([pollVals[0], data["aqi"]])
                 }
+                forHist.push(d)
 
                 let color = [Math.min(val * 2, 255), Math.max(255 - val * 2, 0), Math.min(Math.max(0, 2 * (val - 70)), 255), .5]
 
                 drawDot(resLon, resLat, color, d)
-                if (c === 0) setLoading(false)
+            }).then(() => {
+                c -= 1
+                if (c === 0) {
+                    updateHistoryEl(forHist)
+                    setLoading(false)
+                }
             })
         }
     }

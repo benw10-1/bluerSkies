@@ -6,6 +6,10 @@
         <link rel="stylesheet" href="assets/css/reset.css" type="text/css">
         <link rel="stylesheet" href="assets/css/style.css" type="text/css">
 
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Lato&display=swap" rel="stylesheet">
+
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.12.0/css/ol.css" type="text/css">
 
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
@@ -24,20 +28,20 @@
                 <input id="search" class="input is-large" type="text" placeholder="Search location..." autocomplete="off"></input>
             </div>
         </div>
-        <div class="columns">
-            <div class="column" id="map-column">
+        <div class="content">
+            <div class="col" id="map-column">
                 <div class="map-container">
                     <div id="js-map" class="map"></div>
                 </div>
             </div>
-            <div class="column" id="search-column">
+            <div class="col" id="search-column">
                 <div class="map-container">
                     <div class="search-history">
                         <div class="search-header">
                             <p>Search History</p>
                         </div>
                         <div class="searches">
-
+                            
                         </div>
                     </div>
                 </div>
