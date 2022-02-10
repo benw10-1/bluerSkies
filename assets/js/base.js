@@ -242,6 +242,9 @@ function getLocationData() {
     }
     else {
         setLoading(true)
+        if (arguments[0].length === 5 && parseInt(arguments[0]) !== NaN) {
+            arguments[0] = arguments[0] + " USA"
+        }
         url = "https://nominatim.openstreetmap.org/search?q=" + arguments[0] + "&country=USA&format=json"
     }
     return fetch(url).then(response => {
