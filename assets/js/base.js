@@ -8,8 +8,10 @@ const pollVals = ["<strong>PM<sub>2.5</sub></strong> : ", "<strong>NO<sub>2</sub
 const allowedKeys = ["ArrowRight", "ArrowLeft", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "Enter", "Shift", " ", ",", 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', "-"]
 const searchCollumn = '<div class="column" id="search-column"> <div class="map-container"> <div class="search-history"> <div class="search-header"> <p>Search History</p> </div> <div class="searches"> </div> </div> </div> </div>'
 
-const average = arr => arr.reduce((a,b) => a + b, 0) / arr.length 
-
+const average = arr => {
+    if (typeof arr !== "object" || !arr.reduce) return arr
+    return arr.reduce((a,b) => a + b, 0) / arr.length 
+}
 function generateMap() {
     view = new ol.View({
         center: ol.proj.fromLonLat([-96.21, 37.46]),
@@ -389,7 +391,7 @@ function drawGrid() {
 
     let glbox = map.getView().calculateExtent(map.getSize())
     let box = ol.proj.transformExtent(glbox, 'EPSG:3857', 'EPSG:4326')
-    const center = ol.extent.getCenter(box)
+
     let right = box[2], left = box[0], top = box[3], bottom = box[1]
 
     let width = right - left

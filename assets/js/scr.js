@@ -7,7 +7,6 @@ window.onload = function () {
     search.addEventListener("keydown", (event) => {
         return handleInput(search, event)
     })
-    console.log(JSON.parse(localStorage.getItem("searches")))
     if (localStorage.getItem("searches")) searches = JSON.parse(localStorage.getItem("searches"))
     else {
         searches = {}
@@ -23,7 +22,7 @@ window.onload = function () {
         position = [lon, lat]
         city = data.city ?? "Unnamed"
         zip = data.postal ?? "00000"
-        search.value = city + " " + zip
+        search.value = ""
         if (lat && lon) {
             getLocationData(city + " " + zip).then(data => {
                 if (!data) throw Error("No location found")
@@ -48,3 +47,11 @@ window.onload = function () {
         })
     })
 }
+
+window.addEventListener("keydown", event => {
+    if (event.path[0].tagName === "BODY") {
+        if (event.key === " ") {
+            drawGrid()
+        }
+    }
+})
