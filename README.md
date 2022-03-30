@@ -7,4 +7,4 @@ It uses (quasi) unlimited free APIs to display this information. This web aplica
 
 
 Try it out here:<br>
-<a href="https://benw10-1.github.io/bluerSkies/">https://benw10-1.github.io/bluerSkies/</a><b>
+<a href="https://benw10-1.github.io/bluerSkies/">https://benw10-1.github.io/pollution-map/</a><b>
